@@ -2,20 +2,11 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
-class PlanRequest(BaseModel):
+class TicketRequest(BaseModel):
     departure: str
-    min_days: int
-    max_days: int
+    departure_date: str
     destinations: list[str]
-    mode: str = "multi-city"
-    preferences: Optional[str] = None
-
-    @field_validator("mode")
-    @classmethod
-    def validate_mode(cls, v: str) -> str:
-        if v not in ("single-city", "multi-city"):
-            raise ValueError("mode must be 'single-city' or 'multi-city'")
-        return v
+    stay_days: list[int]
 
     @field_validator("destinations")
     @classmethod
@@ -24,58 +15,38 @@ class PlanRequest(BaseModel):
             raise ValueError("destinations must not be empty")
         return v
 
-    @field_validator("max_days")
+    @field_validator("stay_days")
     @classmethod
-    def validate_days(cls, v: int, info) -> int:
-        min_days = info.data.get("min_days")
-        if min_days is not None and v < min_days:
-            raise ValueError("max_days must be >= min_days")
+    def validate_stay_days(cls, v: list[int], info) -> list[int]:
+        destinations = info.data.get("destinations", [])
+        if len(v) != len(destinations):
+            raise ValueError("stay_days length must match destinations length")
         return v
 
 
-class ScheduleItem(BaseModel):
-    time: str
-    activity: str
-    duration: str
-    cost: float
+class TrainInfo(BaseModel):
+    train_no: str = ""
+    seat_types: str = ""
+    note: str = ""
+    start_time: str = ""
+    arrive_time: str = ""
+    duration: str = ""
+    actual_date: str = ""
+    reason: str = ""
 
 
-class Accommodation(BaseModel):
-    name: str
-    cost: float
-
-
-class DailyPlan(BaseModel):
-    day: int
-    city: str
-    theme: str
-    schedule: list[ScheduleItem]
-    accommodation: Accommodation
-    meals_cost: float
-    day_total: float
-
-
-class Transport(BaseModel):
+class TicketSegment(BaseModel):
     fr: str = Field(alias="from")
     to: str
-    type: str
-    duration: str
-    cost: float
+    travel_date: str
+    train_info: Optional[TrainInfo] = None
+    cost: float = 0
+    stay_days: int = 0
 
     model_config = {"populate_by_name": True}
 
 
-class BudgetBreakdown(BaseModel):
-    transport: float
-    accommodation: float
-    tickets: float
-    meals: float
-    total: float
-
-
-class PlanResponse(BaseModel):
-    actual_days: int
-    overview: str
-    daily_plans: list[DailyPlan]
-    transport: list[Transport]
-    budget_breakdown: BudgetBreakdown
+class TicketResponse(BaseModel):
+    segments: list[TicketSegment]
+    total_cost: float
+    total_days: int

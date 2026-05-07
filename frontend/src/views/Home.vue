@@ -1,63 +1,78 @@
 <template>
   <div class="home">
-    <div class="header">
-      <h1>AutoJourney</h1>
-      <p>输入你的旅行信息，AI 为你规划完美行程</p>
-    </div>
+    <!-- Hero -->
+    <header class="hero">
+      <h1 class="hero-title">AutoJourney</h1>
+      <p class="hero-sub">多城市火车票智能规划。输入出发地与目的地，一键查询最优车票方案。</p>
+    </header>
 
-    <InputForm :loading="loading" @submit="handleGenerate" />
+    <InputForm :loading="loading" @submit="handleQuery" />
 
-    <div v-if="result" class="result-section">
-      <el-alert :title="result.overview" type="success" show-icon :closable="false" />
+    <!-- 进度条 -->
+    <transition name="fade-up">
+      <div v-if="loading" class="progress-section">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" :style="{ width: progress.percent + '%' }" />
+        </div>
+        <div class="progress-info">
+          <span class="progress-message">{{ progress.message }}</span>
+          <span class="progress-percent">{{ progress.percent }}%</span>
+        </div>
+      </div>
+    </transition>
 
-      <el-row :gutter="20" class="content-row">
-        <el-col :span="12">
-          <div class="cards-area">
-            <DailyCard
-              v-for="plan in result.daily_plans"
-              :key="plan.day"
-              :plan="plan"
-              :is-active="activeDay === plan.day"
-              @click="activeDay = plan.day"
-            />
+    <!-- 结果区域 -->
+    <transition name="fade-up">
+      <div v-if="result" class="result-section">
+        <!-- 汇总 -->
+        <div class="summary-bar">
+          <div class="summary-item">
+            <span class="summary-label">总行程</span>
+            <span class="summary-value">{{ result.total_days }} 天</span>
           </div>
-        </el-col>
-        <el-col :span="12">
-          <RouteMap
-            :transport="result.transport"
-            :daily-plans="result.daily_plans"
-            :active-day="activeDay"
-          />
-        </el-col>
-      </el-row>
+          <div class="summary-divider" />
+          <div class="summary-item">
+            <span class="summary-label">总票价</span>
+            <span class="summary-value">¥{{ result.total_cost.toFixed(0) }}</span>
+          </div>
+          <div class="summary-divider" />
+          <div class="summary-item">
+            <span class="summary-label">共 {{ result.segments.length }} 段</span>
+          </div>
+        </div>
 
-      <BudgetChart :budget="result.budget_breakdown" />
-    </div>
+        <TransportInfo :segments="result.segments" />
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import InputForm from '../components/InputForm.vue'
-import DailyCard from '../components/DailyCard.vue'
-import RouteMap from '../components/RouteMap.vue'
-import BudgetChart from '../components/BudgetChart.vue'
-import { generatePlan } from '../api/index.js'
+import TransportInfo from '../components/TransportInfo.vue'
+import { queryTickets } from '../api/index.js'
 
 const loading = ref(false)
 const result = ref(null)
-const activeDay = ref(1)
+const progress = reactive({ percent: 0, message: '', stage: '' })
 
-async function handleGenerate(formData) {
+async function handleQuery(formData) {
   loading.value = true
   result.value = null
+  progress.percent = 0
+  progress.message = '准备中...'
+  progress.stage = ''
+
   try {
-    result.value = await generatePlan(formData)
-    activeDay.value = 1
+    result.value = await queryTickets(formData, (p) => {
+      progress.percent = p.percent
+      progress.message = p.message
+      progress.stage = p.stage
+    })
   } catch (err) {
-    const msg = err.response?.data?.detail || '生成失败，请稍后重试'
-    ElMessage.error(msg)
+    ElMessage.error(err.message || '查询失败，请稍后重试')
   } finally {
     loading.value = false
   }
@@ -68,30 +83,100 @@ async function handleGenerate(formData) {
 .home {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 0 24px 80px;
 }
-.header {
+
+/* ---- Hero ---- */
+.hero {
   text-align: center;
-  margin-bottom: 32px;
+  padding: 72px 20px 56px;
 }
-.header h1 {
-  font-size: 36px;
-  color: #303133;
-  margin-bottom: 8px;
+.hero-title {
+  font-size: 56px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin: 0 0 12px;
+  letter-spacing: -0.28px;
+  line-height: 1.07;
 }
-.header p {
-  color: #909399;
-  font-size: 16px;
+.hero-sub {
+  color: #7a7a7a;
+  font-size: 21px;
+  font-weight: 400;
+  margin: 0;
+  letter-spacing: 0.231px;
+  line-height: 1.19;
 }
-.result-section {
+
+/* ---- Progress ---- */
+.progress-section {
+  max-width: 640px;
+  margin: 32px auto 0;
+}
+.progress-bar-track {
+  height: 4px;
+  background: #e8e8ed;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: #1d1d1f;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 14px;
+  color: #7a7a7a;
+}
+.progress-percent {
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+/* ---- Summary ---- */
+.summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  background: #f5f5f7;
+  border-radius: 14px;
+  padding: 20px 28px;
   margin-top: 32px;
 }
-.content-row {
-  margin-top: 20px;
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
-.cards-area {
-  max-height: 70vh;
-  overflow-y: auto;
-  padding-right: 8px;
+.summary-label {
+  font-size: 13px;
+  color: #86868b;
+}
+.summary-value {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1d1d1f;
+  letter-spacing: -0.28px;
+  font-variant-numeric: tabular-nums;
+}
+.summary-divider {
+  width: 1px;
+  height: 40px;
+  background: #d2d2d7;
+}
+
+/* ---- Fade-up ---- */
+.fade-up-enter-active {
+  transition: all 0.4s ease;
+}
+.fade-up-enter-from {
+  opacity: 0;
+  transform: translateY(16px);
 }
 </style>
