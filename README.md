@@ -100,23 +100,43 @@ AutoJourney/
 - Python 3.10+
 - Node.js 18+
 
-### 后端
+### 安装依赖
 
 ```bash
+# 后端
 cd backend
 pip install -r requirements.txt
+
+# 前端
+cd frontend
+npm install
+```
+
+### 启动服务
+
+需要同时运行后端和前端，**打开两个终端窗口**：
+
+**终端 1 — 启动后端（端口 8000）：**
+```bash
+cd backend
 python -m uvicorn main:app --reload --port 8000
 ```
 
-### 前端
-
+**终端 2 — 启动前端（端口 3000）：**
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-浏览器访问 `http://localhost:3000`。
+### 访问页面
+
+浏览器打开 `http://localhost:3000`，看到 AutoJourney 页面即启动成功。
+
+> 前端开发服务器会自动将 `/api` 请求代理到后端 8000 端口，无需额外配置。
+
+### Windows 一键启动（可选）
+
+项目根目录下有 `start.bat`，双击即可自动启动前后端服务并打开浏览器：
 
 ## API 接口
 
